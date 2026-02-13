@@ -98,7 +98,7 @@ def run_experiment_task(task_type):
         # Conflict: Local vs Global alignment preference.
         
         # Task Loss
-        l_task_val = torch.tensor(0.0)
+        l_task_val = torch.zeros((), dtype=l_align_val.dtype, device=l_align_val.device)
         
         if task_type == 'precise':
             # Task: Reconstruct X using Softmax Attention on Y
@@ -119,14 +119,8 @@ def run_experiment_task(task_type):
             pred = x_emb.mean(1).sum(1) # Dummy projection
             # We need a learnable head to make it realistic? 
             # Let's just use sum of coords as a proxy for feature extraction
-            l_task_val = torch.nn.functional.mse_loss(x_emb.mean(1).sum(1), X_labels.float())
+            l_task_val = torch.nn.functional.mse_loss(x_emb.mean(1).sum(1), X_labels.to(x_emb.device).float())
 
-        # Total Loss
-        loss = l_align_val + l_task_val
-        
-        # Compute Gradients
-        loss.backward()
-        
         # --- Metrics & Measurements ---
         
         # 1. Alignment Matrix (SoftDTW Gradient)
@@ -151,45 +145,46 @@ def run_experiment_task(task_type):
             acc = (recovered_map == gt_indices).float().mean().item()
             
             # 4. Gradient Cosine Similarity
-            # We need grad of l_align vs l_task on Embeddings.
-            # This requires retaining graph or running backward separately.
-            # We'll do a separate small backward pass for metrics (inefficient but clear)
-        
-        # Gradient conflict check (expensive, do every distinct step or just re-run backward)
-        # Re-zero and separate backward
-        optimizer.zero_grad()
-        # Emb Grah
-        D_check, x_e, y_e = model(X,Y)
-        l_a = compute_softdtw(D_check, gamma=GAMMA).mean()
-        l_a.backward(retain_graph=True)
-        grad_a = torch.cat([p.grad.flatten() for p in model.embedding.parameters() if p.grad is not None])
-        
-        optimizer.zero_grad()
-        
-        l_t = torch.tensor(0.)
-        if task_type == 'precise':
-            attn = torch.softmax(-D_check / GAMMA, dim=-1)
-            fused = torch.bmm(attn, y_e)
-            l_t = torch.nn.functional.mse_loss(fused, x_e)
-        elif task_type == 'coarse':
-             l_t = torch.nn.functional.mse_loss(x_e.mean(1), y_e.mean(1))
-        elif task_type == 'unrelated':
-             l_t = torch.nn.functional.mse_loss(x_e.mean(1).sum(1), X_labels.float())
-             
-        l_t.backward()
-        grad_t = torch.cat([p.grad.flatten() for p in model.embedding.parameters() if p.grad is not None])
-        
-        # Cos Sim
+            # We need grad of l_align vs l_task on embedding parameters.
+            # Use autograd.grad so we don't consume/free the graph before the real optimizer backward.
+
+        emb_params = tuple(model.embedding.parameters())
+
+        grad_a_list = torch.autograd.grad(
+            l_align_val,
+            emb_params,
+            retain_graph=True,
+            allow_unused=True,
+        )
+        grad_t_list = torch.autograd.grad(
+            l_task_val,
+            emb_params,
+            retain_graph=True,
+            allow_unused=True,
+        )
+
+        flat_a = []
+        flat_t = []
+        for p, ga, gt in zip(emb_params, grad_a_list, grad_t_list):
+            if ga is None:
+                ga = torch.zeros_like(p)
+            if gt is None:
+                gt = torch.zeros_like(p)
+            flat_a.append(ga.reshape(-1))
+            flat_t.append(gt.reshape(-1))
+
+        grad_a = torch.cat(flat_a)
+        grad_t = torch.cat(flat_t)
+
         if grad_a.norm() > 0 and grad_t.norm() > 0:
-            cos_sim = torch.dot(grad_a, grad_t) / (grad_a.norm() * grad_t.norm())
-            cos_sim = cos_sim.item()
+            cos_sim = (torch.dot(grad_a, grad_t) / (grad_a.norm() * grad_t.norm())).item()
         else:
             cos_sim = 0.0
-            
-        # Step actual optimizer (using combined gradients from original pass? No, I cleared them.)
-        # Need to redo backward combined
+
+        # Total Loss + optimizer step (single backward per epoch)
+        loss = l_align_val + l_task_val
         optimizer.zero_grad()
-        (l_align_val + l_t).backward()
+        loss.backward()
         optimizer.step()
         
         # Log
