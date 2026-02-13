@@ -128,15 +128,18 @@ def run_experiment_task(task_type):
         loss.backward()
         
         # --- Metrics & Measurements ---
-        with torch.no_grad():
-            # 1. Alignment Matrix (SoftDTW Gradient)
-            # We specifically want to check the structure of the SoftDTW alignment
-            # So we re-compute the grad w.r.t D just for inspection
+        
+        # 1. Alignment Matrix (SoftDTW Gradient)
+        # We specifically want to check the structure of the SoftDTW alignment
+        # So we re-compute the grad w.r.t D just for inspection.
+        # This requires gradient calculation (even though D is detached, the operations need tracking).
+        with torch.enable_grad():
             D_detached = D.detach().requires_grad_(True)
             dummy_loss = compute_softdtw(D_detached, gamma=GAMMA).mean()
             dummy_loss.backward()
             align_matrix = D_detached.grad
             
+        with torch.no_grad():
             # 2. Entropy
             ent = entropy(align_matrix)
             
