@@ -1,240 +1,209 @@
-## Research Proposal：Energy Landscape-Based Subclass via Morse-Theoretic Stratification (ELB)
-
-### 0) 問題背景與動機
-
-現有的 *subclass discovery* 常把 subclass 當成「幾何距離上的 cluster」：依賴 Euclidean/embedding 距離、或 mixture 假設（GMM / k-means / spectral）。但在高維資料（影像、醫療、語音、表示學習 embedding）中，**距離不一定對應語意結構**，而且 cluster 邊界容易被噪聲或表示扭曲破壞。
-
-本研究提出：**不以 cluster 定義 subclass，而以樣本密度所誘導的能量地形之拓撲穩定 basin 定義 subclass**。Subclass 變成一個「動力系統的吸引域」與「拓撲物件」，核心依據是 Morse theory / gradient flow / critical point theory 的穩定性。
+## Research Proposal：Energy Landscape-Based Subclass（ELB）— 以 Morse 理論分層定義基因表現亞型
 
 ---
 
-## 1) 研究目標 (Research Objectives)
+## 研究目標
 
-1. **形式化 subclass 的新定義**：給定平滑密度 (p(x))，以能量 (E(x)=-\log p(x)) 的梯度流之 basin-of-attraction 定義 subclass（而非距離群集）。
-2. **建立理論保證**：在合理條件（(E) 為 Morse / Morse–Smale）下，證明 subclass（basin 分割）對小密度擾動具有拓撲穩定性（critical point index 不變、stable manifold 分割同胚/微分同胚）。
-3. **提出可實作方法**：以 score-based model / normalizing flow 等估計 (p(x)) 或 (\nabla \log p(x))，用 ODE/gradient flow 指派 basin，並以 Hessian signature 分析 saddle 結構與 subclass 邊界。
-4. **驗證「不是 cluster」的效益**：在 toy 與真實資料上，展示 ELB 對於非凸形狀、低密度 ridge、長尾子族群（rare subclass）更穩定，並可改善下游分類/偵測/解釋性。
-
----
-
-## 2) 理論洞見 (Theoretical Insights)
-
-* **Subclass 是拓撲不變的吸引域分解**：資料空間（或 embedding manifold）被 (E(x)) 的梯度流分割成 stable manifolds；每個 local minimum 的 stable manifold 即一個 subclass。
-* **邊界由 saddle 的 unstable manifold 決定**：subclass 邊界不是「距離等分線」，而是由 index-1 saddle 的 separatrix（分離流形）構成；這提供可解釋的「為何這些點被分開」。
-* **穩定性來自 Morse 理論**：只要 (E) 維持 Morse（臨界點非退化）且流場滿足 Morse–Smale（stable/unstable manifold 橫截），則小擾動不改變拓撲分解的型態 → subclass 定義具 robust 的理論基礎。
+1. **形式化定義「亞型（subclass）」為能量地形上的拓撲穩定 basin**：給定平滑密度 (p(x))，以能量 (E(x)=-\log p(x)) 的 **gradient flow** 之 **local minima 的 stable manifold** 作為亞型分區（而非距離式 cluster）。
+2. **建立 ELB 的拓撲穩定性理論**：在小擾動（例如 batch effect、估計誤差、取樣噪音）下，證明 critical point 的 index、Morse–Smale 分層與 basin assignment 的穩定條件。Morse–Smale 系統的結構穩定性是核心支撐。 ([scholarpedia.org][1])
+3. **把 ELB 落地於 microarray / gene expression subtype discovery**：在多個公開癌症基因表現資料集上，展示 ELB 能在「非球狀 / ridge / saddle 分隔」情境下，比傳統 clustering 更穩健地得到可重現、具生物意義的亞型分層。
 
 ---
 
-## 3) 創新點 (Innovation)
+## 預期貢獻
 
-1. **Subclass 定義從幾何 → 動力系統 / 拓撲**：不以距離或 mixture 假設，而以 (E=-\log p) 的拓撲穩定 basin 定義 subclass。
-2. **把 mean-shift / density clustering 從 heuristic 提升為可證明的 Morse 架構**：同樣是沿密度梯度走向 mode，但本研究顯式使用 critical point index、Morse 分解、以及穩定性條件。
-3. **saddle-aware 的 subclass 邊界刻畫**：用 Hessian signature（特徵值符號）辨識 minima/saddle，將 subclass 邊界與 saddle 結構連結，提供「可驗證、可視化、可推導」的決策結構。
-4. **可做 multi-scale / persistent subclass**：透過密度平滑尺度（KDE bandwidth 或 score model 的 noise level），得到隨尺度變化的 basin 合併/分裂，形成 subclass 的 persistence 分析（更貼近真實資料的層級結構）。
-
----
-
-## 4) 研究貢獻 (Contributions)
-
-* **C1（定義）**：提出 ELB subclass = 能量地形 basin 的形式化定義。
-* **C2（理論）**：給出 subclass 拓撲穩定性的充分條件與定理（Morse / Morse–Smale + 小 (C^2) 擾動）。
-* **C3（演算法）**：一套可在高維中運作的 basin 指派、critical point 搜尋、Hessian index 估計與邊界重建流程。
-* **C4（實證）**：在合成與真實資料上，展示 ELB 對於非凸、低密度 ridge、rare subclass 的優勢與穩健性，並量化 stability。
+1. **Subclass 的新定義**：Subclass 被定義為能量地形的拓撲物件（basin / stratification），而不是距離相近的點集合。
+2. **理論貢獻（可寫成 theorem 群）**：把「模式分群（mode clustering）」常見的 heuristic（如 mean-shift）提升為 **Morse–Smale/結構穩定** 的可證明框架；並把「擾動下 basin 不變」寫成明確條件。 
+3. **方法論貢獻**：提出一個可操作的 ELB pipeline：高維基因表現 →（可解釋的）低維流形表示 → 平滑密度/能量估計 → Morse–Smale 分層與 persistence 簡化 → basin 指派與穩健性評估。
+4. **生物學驗證貢獻**：提供「亞型穩健性（bootstrap 一致性）」+「臨床/生物效度（存活分離、已知 subtype 對齊、富集分析）」的系統化評估設計。
 
 ---
 
-## 5) 理論貢獻 (Theoretical Contributions)
+## 創新點
 
-### 5.1 基本定義（Subclass 作為 stable manifold）
-
-給定平滑密度 (p(x))（定義在 (\mathbb{R}^d) 或流形 (\mathcal{M}) 上），能量
-[
-E(x) = -\log p(x).
-]
-考慮梯度流（gradient flow）
-[
-\frac{dx}{dt} = -\nabla E(x) = \nabla \log p(x).
-]
-令 (\phi_t(x)) 表示流的解（flow map）。若 (m_k) 是 (E) 的 local minimum（亦即 (p) 的 mode），定義 basin / subclass：
-[
-\mathrm{Subclass}*k ;=; W^s(m_k) ;=; {x:\lim*{t\to\infty}\phi_t(x)=m_k}.
-]
-此即 Morse theory 中的 **stable manifold**。整體空間（除 measure-zero 的分界集合）被這些 stable manifolds 分割。
-
-### 5.2 臨界點分類（Hessian signature）
-
-臨界點 (x^\star) 滿足 (\nabla E(x^\star)=0)。其 Morse index 定義為 Hessian 的負特徵值個數：
-[
-\mathrm{index}(x^\star)=#{\lambda_i(\nabla^2E(x^\star))<0}.
-]
-
-* index (0)：local minimum（mode / subclass 代表）
-* index (1)：一階 saddle（典型 subclass 分界的「閘口」）
-* index (>1)：更高階 saddle（更複雜分界結構）
-
-### 5.3 Subclass 穩定性（核心定理主張）
-
-> **定理 A（Morse 臨界點穩定性，概念版）**
-> 若 (E) 為 Morse 函數（所有臨界點非退化：(\det\nabla^2E(x^\star)\neq 0)），且 (\tilde{E}=E+\Delta E) 與 (E) 在 (C^2) 範數下足夠接近（(|\Delta E|_{C^2}<\varepsilon)），則：
->
-> 1. (\tilde{E}) 的臨界點與 (E) 的臨界點存在一一對應（在局部鄰域內），
-> 2. 對應臨界點的 Morse index 相同（minima/saddle 型態不變）。
-
-> **定理 B（Morse–Smale 分解穩定性，概念版）**
-> 若梯度流 (\dot{x}=-\nabla E(x)) 為 Morse–Smale（stable/unstable manifolds 橫截），則對足夠小的 (C^1)（或 (C^2)）擾動 (\tilde{E})，存在同胚/微分同胚 (h) 使得
-> [
-> h(W^s_E(m_k)) = W^s_{\tilde{E}}(\tilde{m}_k),
-> ]
-> 因此 subclass 的 basin 分割在拓撲意義下保持不變（除邊界附近的可控擾動）。
-
-**意義**：只要密度估計或資料擾動不造成臨界點「退化或湮滅/生成」（即不跨越臨界事件），ELB subclass 就具有可證明的穩健性。
+1. **不用 cluster，而用 dynamical system 的 attractor basin 定義 subclass**（basin-of-attraction 作為 label 生成機制）。
+2. **使用 Morse–Smale complex 作為分層骨架**：不只看 minima（mode），還顯式利用 saddle 結構（Hessian signature / separatrix）來刻畫 subtype 邊界與可合併尺度（persistence）。 ([pub.ista.ac.at][2])
+3. **以「拓撲穩定」取代「距離假設」**：對 microarray 常見的高噪音、小樣本、非線性分隔，主張用拓撲不變性作為 subclass 的本質。
 
 ---
 
-## 6) 方法論 (Methodology)
+## 理論洞見
 
-### 6.1 密度 / score 的學習
-
-我們有兩條路徑（可比較）：
-
-**(M1) Score-based model（推薦，避免顯式密度）**
-學 (;s_\theta(x)\approx\nabla \log p(x))。
-優點：高維可行、直接就是 flow 方向；可用多噪聲層級做 multi-scale subclass。
-
-**(M2) Normalizing flow / energy-based density**
-學 (\log p_\theta(x)) 進而得到 (E_\theta(x)=-\log p_\theta(x))、(\nabla E_\theta)、(\nabla^2 E_\theta)。
-優點：能量與密度可評估；缺點：某些資料更難訓練。
-
-### 6.2 Basin 指派（Subclass assignment）
-
-對每個樣本 (x)，做 ODE 積分（或離散梯度下降）：
-[
-x_{t+1}=x_t-\eta\nabla E(x_t) \quad(\text{等價於 } x_{t+1}=x_t+\eta,\nabla\log p(x_t)).
-]
-收斂到的 minimum (m_k) 即 subclass label。
-為避免不同 run 收斂到近似相同 minimum，可在 minima 空間做 merge（例如以能量差、距離與 Hessian 近似相等作同一 mode）。
-
-### 6.3 Critical point 偵測與 Hessian index
-
-* **臨界點搜尋**：從多個起點做 gradient flow/局部 Newton（在 score=0 的條件下），收集候選 minima/saddle。
-* **Hessian index 估計**：高維下用 Lanczos / power iteration / Hutchinson trace 近似取得負特徵值數，判斷 index。
-* **邊界刻畫**：聚焦 index-1 saddle，沿其 unstable manifold 追蹤 separatrix，重建 basin 邊界的幾何結構（可在低維投影空間或局部 chart 近似）。
-
-### 6.4 Multi-scale / Persistent subclass（選配但很強）
-
-定義一族平滑後能量 (E_\sigma)（例如 KDE bandwidth、或 score model 的 noise level）。隨 (\sigma) 變化，basin 會合併/分裂。
-輸出：subclass 的層級樹（merge tree）或 persistence summary，讓 subclass 不只是一個固定 partition，而是尺度可控的拓撲結構。
+1. **亞型邊界本質上是 separatrix（由 saddle 的 stable/unstable manifold 決定）**：傳統 clustering 常把「低密度 ridge / saddle 分隔」誤當成可忽略噪音；ELB 反而把它視為 subtype 的拓撲邊界。
+2. **多尺度亞型是自然產物**：藉由 Morse–Smale complex 的 persistence-based simplification，可得到由粗到細的亞型層級（類似 cluster tree，但有明確的拓撲意義與取消（cancellation）規則）。 ([graphics.stanford.edu][3])
+3. **高維未必毀掉 mode/basin 思路**：已有理論指出 mode-based clustering 的風險可以在「高密度 core」區域很小，且可在低噪音條件下控制整體風險；ELB 會把這條線推進到「Morse 分層 + 穩定性」層次。 
 
 ---
 
-## 7) 數學理論推演與證明（Proof Plan，偏「可投稿」的寫法）
+## 理論貢獻（可寫進論文的核心命題）
 
-本研究預計在論文中給出以下可形式化的推導骨架（依投稿 venue 可調嚴謹度）：
+### 命題 A：非退化 critical point 與 index 的擾動穩定
 
-1. **從密度到 Morse 函數的條件**
+若 (E\in C^2) 為 Morse function（所有 critical point 非退化），且 (|\widehat{E}-E|_{C^2}) 足夠小，則每個 critical point (c) 對應到一個唯一 (\hat c)（位置小偏移），且 Hessian signature（index）保持不變。
 
-   * 假設 (p(x)\in C^2)、且在考慮區域內 (p(x)>0) → (E=-\log p\in C^2)。
-   * 假設臨界點滿足非退化（(\nabla E=0\Rightarrow \det\nabla^2E\neq 0)）→ (E) 為 Morse。
+*證明路線（摘要）*：對 (\nabla E(c)=0)、(\det \nabla^2E(c)\neq 0) 用 **implicit function theorem**；index 不變由 Hessian 連續性推出。
 
-2. **臨界點與 index 的穩定性（定理 A）**
+### 命題 B：Morse–Smale 分層的結構穩定與 basin 不變性
 
-   * 以隱函數定理（implicit function theorem）處理 (\nabla \tilde{E}(x)=0) 在臨界點附近的解存在與唯一性。
-   * 以 Hessian 特徵值連續性與 Weyl 不等式控制特徵值符號不翻轉 → index 保持。
+若 (\dot x = -\nabla E(x)) 為 Morse–Smale gradient-like flow，則系統在小擾動下具有結構穩定性；因此 stable manifold 分割（basin 分區）在拓撲意義下保持一致（存在同胚把一個分割送到另一個分割）。 ([scholarpedia.org][1])
 
-3. **basin 分割的穩定性（定理 B）**
+### 命題 C：估計誤差 (\Rightarrow) basin 指派風險界
 
-   * 引入 Morse–Smale 條件確保 stable/unstable manifolds 橫截，並使用動力系統的結構穩定性（structural stability）結論：小擾動下流的拓撲共軛（topological conjugacy）。
-   * 推得 stable manifolds 的分割在同胚下對應 → subclass 穩定。
-
-4. **可計算性與誤差傳遞（從估計的 score 到 basin label）**
-
-   * 若 (s_\theta(x)) 與真實 (\nabla \log p(x)) 在區域內一致逼近（(|s_\theta-\nabla \log p|_\infty\le \delta)），可推導離散 flow 的終點偏差與 basin label 翻轉的條件：翻轉主要發生在靠近 separatrix 的薄層，並可用 margin（到邊界的最小流形距離）給出上界。
+令 (\widehat{E}) 由估計的 (\widehat p) 得到（或由 score model/flow 得到可微 (\log \widehat p)），若 (|\widehat{E}-E|_{C^2}) 有上界，則 basin assignment 的錯誤主要集中在「靠近分界面（saddle separatrix）」的薄層；可用「分界面 (\delta)-neighborhood 的機率質量」上界錯分率，並可對應到已知的 mode clustering 風險分析與 flow 穩定性結果。 
 
 ---
 
-## 8) 預計使用 Dataset
+## 方法論
 
-（目的：同時驗證「可視化 toy」與「高維真實資料」）
+### 1) 資料前處理（microarray 特化）
 
-1. **Toy / 合成資料（必做）**
+* 以 GEO/Curated 來源取得 expression matrix（建議先用已標準化的 series matrix / harmonized matrices，降低 RMA/CEL 門檻）。
+* 常見處理：(\log_2) transform、quantile normalization（若來源未做）、probe→gene 彙整、低變異基因過濾、批次校正（ComBat 等，作為「擾動測試」的一部分）。
 
-   * 兩個高斯 + 中間低密度 ridge / 薄橋（你描述的 setting）
-   * 非凸月牙（two-moons）、環狀（annulus）、多模態且 saddle 控制邊界的例子
-     評估：ELB basin 是否與真實生成機制一致、k-means 是否錯分、邊界是否落在低密度區。
+### 2) 表徵空間（避免高維密度估計崩壞）
 
-2. **影像資料（建議）**
+* 先做可解釋降維：PCA（保留 20–100 維）、或帶可逆/平滑性約束的 autoencoder latent。
+* ELB 的正式定義可在 latent manifold (z=g(x)) 上做：學 (p_Z(z))，設 (E(z)=-\log p_Z(z))。
 
-   * MNIST / Fashion-MNIST：做 subclass（例如同一類數字內的筆劃風格 basin）
-   * CIFAR-10：在 class-conditional density 上找 subclass（同一類物體的姿態/背景 basin）
-   * 若你偏醫學：MedMNIST 系列做 class 內亞型（domain shift + rare patterns）
+### 3) 平滑密度 / 能量估計（兩條可投稿的路線）
 
-3. **表格 / 表徵資料（選配）**
+* **Normalizing Flow**（可得 exact/tractable (\log p)）：例如 RealNVP 類模型，便於直接算 (\nabla E)、Hessian。 ([arXiv][4])
+* **Score-based model（SDE diffusion）**：直接學 score (\nabla \log p)，再定義 flow (\dot z = -\nabla E(z)=\nabla \log p(z))，可用現成框架。 ([arXiv][5])
 
-   * UCI 或 embedding dataset（例如 sentence embeddings、病歷特徵向量）
-     重點：展示距離型分群在 embedding distortion 下不穩，而 ELB 仍能靠低密度邊界維持穩定。
+### 4) Morse–Smale 分層與 basin 指派（連續 + 離散兩版）
 
----
-
-## 9) 與現有研究之區別 (Positioning vs Prior Work)
-
-1. **vs k-means / GMM / spectral**：
-   它們以距離或線性代數結構定義 cluster；ELB 以密度誘導的能量拓撲（basin）定義 subclass，**邊界由 saddle/低密度分隔決定**，不是由距離等分決定。
-
-2. **vs DBSCAN / HDBSCAN**：
-   它們以「密度連通」做 heuristic 的 cluster；ELB 直接把 subclass 定義為梯度流的 stable manifold，並把穩定性條件（Morse/Morse–Smale）放進理論敘述。
-
-3. **vs mean-shift / mode clustering**：
-   mean-shift 可視為朝 (\nabla \log p) 上升，但多停在演算法層；ELB 強調 **(i) Morse index 的結構性分析、(ii) saddle 決定分界、(iii) 小擾動下 basin 拓撲穩定的定理化敘述**，使「subclass 是拓撲物件」成為可投稿的核心貢獻。
-
-4. **vs TDA/Morse–Smale complex 的既有用法**：
-   若既有工作把 Morse–Smale 用於可視化或低維分群，ELB 的差異在於：**把它定位為 subclass 的定義本體 + 與現代密度/score model 結合 + 提供可操作的高維 Hessian/index 估計與穩定性論證**。
+* **連續版（autograd）**：多起點做 gradient flow 收斂到 minima；在 minima 估 Hessian eigenvalues 確認 index=0。
+* **離散版（更實務，適合高維小樣本）**：在 kNN 圖上定義離散能量場，做 steepest descent 到局部 minima，並以離散 Morse–Smale complex 概念建立分區，再做 persistence 簡化移除低顯著 minima（去噪、提升穩健）。 
 
 ---
 
-## 10) Experiment 設計 (Experimental Design)
+## 數學理論推演與證明（寫作建議結構）
 
-### 10.1 實驗 A：Toy 反例（展示「不是 cluster」）
+1. **定義（ELB subclass）**
+   給 (p(x)>0) 平滑，(E(x)=-\log p(x))。gradient flow
+   [
+   \dot x = -\nabla E(x)
+   ]
+   對每個 local minimum (m_k)，定義 basin（stable manifold）
+   [
+   \mathcal B_k = {x: \lim_{t\to\infty}\phi_t(x)=m_k}.
+   ]
+   Subclass (k := \mathcal B_k)。
 
-* **資料**：兩高斯 + 中間低密度 ridge（或薄橋）
-* **比較法**：k-means、GMM、spectral、DBSCAN/HDBSCAN、mean-shift
-* **指標**：
+2. **Morse–Smale 條件與分層（stratification）**
+   要求 (E) 為 Morse 且 stable/unstable manifolds 橫截（transverse），得到 Morse–Smale complex。 ([scholarpedia.org][1])
 
-  1. 與 ground-truth basin label 的一致性（ARI/NMI/accuracy）
-  2. 邊界位置是否落在低密度區（boundary density score）
-  3. 擾動穩定性：加噪/旋轉/小扭曲後 partition 變動率（VI / label flip rate）
+3. **穩定性證明主線**
 
-### 10.2 實驗 B：高維影像 subclass（class-conditional）
+   * critical point 持續性：implicit function theorem（命題 A）。
+   * flow 的穩定性：已知結果可把「函數 (C^2) 接近」轉換為「gradient flow 線與終點接近」，並可推導 basin 邊界擾動界。 
+   * 結構穩定性：Morse–Smale 系統對小擾動具結構穩定。 ([scholarpedia.org][1])
 
-* **流程**：先訓練一個 class-conditional score model（或用預訓練 encoder 後在 embedding 上做密度）
-* **目標**：在同一 class 內找 subclass（風格、姿態、背景）
-* **評估**：
+4. **統計層（finite sample）對接**
 
-  * 穩定性：不同 seed / 小擾動下 basin 指派一致性
-  * 可解釋性：每個 basin 的代表樣本、沿 flow 的「語意變化」
-  * 下游：以 subclass 作為輔助標籤做分類/校正，或做 OOD/shift 偵測（低密度邊界有利）
-
-### 10.3 實驗 C：Saddle-aware boundary（驗證理論結構）
-
-* **做法**：
-
-  1. 找 index-1 saddle（score=0 + Hessian index=1）
-  2. 從 saddle 附近沿不穩定方向追 separatrix
-* **檢查**：
-
-  * separatrix 是否對應實際 label flip 的邊界薄層
-  * 邊界附近點的能量與密度是否符合「低密度分隔」假說
-  * 擾動後 saddle 結構是否保持（index 不變、數量不大幅變化）
-
-### 10.4 實驗 D：Multi-scale persistent subclass（加分項）
-
-* **做法**：改變 smoothing/noise level，追蹤 basin merge/split
-* **輸出**：subclass hierarchy / merge tree
-* **評估**：是否能得到符合人類直覺的「粗到細」亞型階層，並提升穩定性（避免過度切分）。
+   * 用 (|\widehat{E}-E|_{C^2}) 控制 basin 變化。
+   * 參考 mode clustering 風險分析：錯分集中在分界薄層；高密度 core 區錯分可極小。 
 
 ---
 
-如果你接下來要把它變成「可投 ML 理論/表示學習」的版本，我建議你下一步直接決定兩件事：
+## 預計使用資料集（Gene Expression / Microarray；可用 Python 自動下載）
 
-1. 你要在 *原始資料空間* 做 (p(x))，還是在 *learned representation (z=f(x))* 上做 (p(z))（兩者理論與實驗重點不同）；
-2. 你要主打的 theorem 是「臨界點/index 穩定」還是「Morse–Smale 分解穩定」還是「score approximation → label flip 上界」。
-   你不需要先問我，我也可以直接替你各做一版（偏理論 / 偏系統 / 偏應用）proposal。
+### A. 直接用 NCBI GEO（GEOparse 一行下載）
+
+* **GSE13159（MILE leukemia, 2096 samples）**：大型白血病診斷/亞型資料集，適合測 ELB 在多類別與複雜分隔下的 basin 結構。 ([國家生物技術資訊中心][6])
+* **GSE2034（breast cancer relapse-free survival）**：含遠端轉移/復發資訊，適合評估 ELB subclass 的預後分離。 ([國家生物技術資訊中心][7])
+* **GSE1456（breast tumors, n=159）**：常用預後/分類資料集，可做跨資料集穩健性測試。 ([國家生物技術資訊中心][8])
+* **GSE45827（breast cancer subtypes）**：對 subtype discovery 很直接（可用既有 subtype label 做外部驗證）。 ([國家生物技術資訊中心][9])
+
+**Python 下載示例（GEOparse）**：GEOparse 提供下載與解析 GEO Series / Samples / Platforms 的標準介面。 ([PyPI][10])
+
+```python
+import GEOparse
+gse = GEOparse.get_GEO("GSE2034", destdir="./geo")
+# gse.gsms: samples；gse.gpls: platform annotation
+```
+
+### B. 使用 refine.bio（已 harmonize 的 expression matrix + metadata；有 Python client）
+
+refine.bio 可把公開轉錄體資料統一處理並輸出可直接 ML 的矩陣與樣本中繼資料，並提供 Python client。 ([GitHub][11])
+
+```python
+import pyrefinebio
+# 依 refine.bio API 建 dataset，並下載 zip（包含 expression matrix 與 metadata）
+```
+
+### C. CuMiDa（癌症 microarray benchmark 合集）
+
+CuMiDa 提供「篩選+正規化+品質控管」後的 78 個人類癌症 microarray 資料集，定位就是 ML benchmarking；可作為 ELB 的廣泛基準測試池。 ([PubMed][12])
+
+---
+
+## 與現有研究之區別
+
+1. **相對於 mean-shift / mode clustering**
+
+   * 傳統模式分群把 cluster 視為 mode 的 basin-of-attraction，但多停留在演算法或風險分析，且常用 KDE + heuristic mean-shift。 
+   * ELB 的差異：把 subclass 定義提升到 **Morse–Smale stratification**，並把 saddle 結構（邊界）與 persistence（多尺度）納入定義與穩定性證明骨架。 ([pub.ista.ac.at][2])
+
+2. **相對於 topological ML（如用 Mapper/PH 做聚類）**
+
+   * ELB 的拓撲單元不是「連通性/覆蓋」而是 **gradient-flow 誘導的分層**；subclass 直接對應到動力系統吸引域，理論上可用結構穩定性處理擾動。 ([scholarpedia.org][1])
+
+3. **相對於既有 Morse–Smale 在統計的應用（如 Morse–Smale regression）**
+
+   * 既有工作用 Morse–Smale complex 做回歸分段與 persistence 簡化；ELB 則把它用於「亞型定義與穩健分群」，並將密度/能量估計誤差與 basin 穩定性系統連結（命題 A–C）。 ([PMC][13])
+
+---
+
+## Experiment 設計
+
+### 1) Toy experiment（驗證「不是距離問題，是地形問題」）
+
+* 生成：兩群高斯 + 中間低密度 ridge（或多鞍點結構）。
+* 比較：k-means/GMM/spectral/DBSCAN vs mean-shift vs ELB（含 persistence 簡化）。
+* 指標：對真實 basin label 的 ARI/NMI；對擾動（加噪、改帶寬、減樣本）的一致性曲線。
+
+### 2) Real data：Subtype discovery（核心主實驗）
+
+對每個 GEO dataset（GSE13159 / GSE2034 / GSE1456 / GSE45827）：
+
+**(a) 外部效度（若有 label）**
+
+* 用已知 subtype/診斷標籤：ARI/NMI、macro-F1（把 subclass 當 pseudo-label 做 downstream classifier）。
+* 對 GSE45827 這類 subtype 資料集，測 ELB 是否能在不指定 (K) 的情況下恢復主要亞型。
+
+**(b) 臨床效度（若有 survival/relapse）**
+
+* 在 GSE2034（relapse-free）上：Kaplan–Meier 分離、log-rank test、CoxPH hazard ratio（用 subclass 當分層變數）。
+
+**(c) 生物可解釋性**
+
+* 每個 basin 做 differential expression（limma/簡化版 t-test），做 GO/Pathway 富集；檢查 basin 是否對應已知生物機制（例如免疫浸潤、ER/HER2 軸、細胞週期）。
+
+### 3) Robustness / Stability（你的理論要落地成圖）
+
+* **Bootstrap stability**：重抽樣本、重抽基因子集（feature bagging），看 subclass assignment 的一致性（平均 ARI）。
+* **Batch-like perturbation**：加入平台/批次偏移（或用 ComBat 前後比較），檢查「critical point 數量與 persistence hierarchy」是否穩定。
+* **Ablation**：
+
+  1. 密度估計器（KDE vs flow vs score-based） ([arXiv][4])
+  2. latent 維度
+  3. persistence 閾值（取消低顯著 critical pairs） 
+
+---
+
+如果你要把它寫成可投稿的「理論+實證」論文，建議主線就是：**定義（ELB）→ Morse–Smale 結構 → 擾動穩定 theorem（A/B/C）→ 離散近似演算法（含 persistence）→ GEO/微陣列 subtype 的穩健性與臨床效度**。
+
+[1]: https://www.scholarpedia.org/article/Morse-Smale_systems?utm_source=chatgpt.com "Morse-Smale systems"
+[2]: https://pub.ista.ac.at/~edels/Papers/2003-08-MorseSmaleComplexes3D.pdf?utm_source=chatgpt.com "Morse-Smale Complexes for Piecewise Linear 3-Manifolds"
+[3]: https://graphics.stanford.edu/courses/cs468-01-fall/Papers/edelsbrunner_harer_zomorodian.pdf?utm_source=chatgpt.com "Hierarchical Morse Complexes for Piecewise Linear 2- ..."
+[4]: https://arxiv.org/abs/1605.08803?utm_source=chatgpt.com "[1605.08803] Density estimation using Real NVP"
+[5]: https://arxiv.org/abs/2011.13456?utm_source=chatgpt.com "Score-Based Generative Modeling through Stochastic Differential Equations"
+[6]: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE13159&utm_source=chatgpt.com "GSE13159 - GEO Accession viewer - NIH"
+[7]: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=gse2034&utm_source=chatgpt.com "Series GSE2034 - GEO Accession viewer - NIH"
+[8]: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=gse1456&utm_source=chatgpt.com "GSE1456 - GEO Accession viewer - NIH"
+[9]: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE45827&utm_source=chatgpt.com "GSE45827 - GEO Accession viewer - NIH"
+[10]: https://pypi.org/project/GEOparse/ "GEOparse · PyPI"
+[11]: https://github.com/AlexsLemonade/refinebio-py?utm_source=chatgpt.com "AlexsLemonade/refinebio-py: A python client for the refine. ..."
+[12]: https://pubmed.ncbi.nlm.nih.gov/30789283/?utm_source=chatgpt.com "CuMiDa: An Extensively Curated Microarray Database for ..."
+[13]: https://pmc.ncbi.nlm.nih.gov/articles/PMC3653333/?utm_source=chatgpt.com "Morse-Smale Regression - PMC - NIH"
